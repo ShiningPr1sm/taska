@@ -145,8 +145,6 @@ public class TuiEngine {
         java.net.URL url = getClass().getResource("/icon_256.png");
         if (url != null) {
             Image base = new ImageIcon(url).getImage();
-            // Явно генерируем набор размеров из одного качественного исходника —
-            // так Windows гарантированно найдёт подходящий вариант без апскейла мелкого файла
             int[] sizes = {16, 24, 32, 48, 64, 128, 256};
             for (int size : sizes) {
                 icons.add(base.getScaledInstance(size, size, Image.SCALE_SMOOTH));
