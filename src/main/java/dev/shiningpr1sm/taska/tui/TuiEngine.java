@@ -27,14 +27,18 @@ import dev.shiningpr1sm.taska.tui.theme.AppFont;
 import dev.shiningpr1sm.taska.tui.theme.AppTheme;
 import dev.shiningpr1sm.taska.tui.theme.FontManager;
 import dev.shiningpr1sm.taska.tui.theme.ThemeManager;
+import dev.shiningpr1sm.taska.update.SwingUpdatePrompt;
 import dev.shiningpr1sm.taska.update.UpdateApplier;
 import dev.shiningpr1sm.taska.update.UpdateDialog;
 import dev.shiningpr1sm.taska.update.UpdateManager;
+
+import javax.swing.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.awt.*;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +75,7 @@ public class TuiEngine {
             allLists.add(defaultList);
         }
 
+        checkForUpdatesBeforeLaunch();
         runUntilExit();
     }
 
@@ -91,7 +96,64 @@ public class TuiEngine {
         }
     }
 
+    private void checkForUpdatesBeforeLaunch() {
+        String currentVersion = UpdateManager.getCurrentVersion();
+        if ("dev".equals(currentVersion)) return;
+
+        UpdateManager.ReleaseInfo release = UpdateManager.fetchLatestRelease();
+        if (release == null) return;
+
+        if (UpdateManager.compareVersions(release.version(), currentVersion) <= 0) return;
+
+        String skipped = UpdateManager.loadSkippedVersion();
+        if (release.version().equals(skipped)) return;
+
+        SwingUpdatePrompt.Choice choice =
+                SwingUpdatePrompt.show(currentVersion, release.version(), release.notesMarkdown());
+
+        if (choice == SwingUpdatePrompt.Choice.KEEP_OLD) {
+            UpdateManager.saveSkippedVersion(release.version());
+            return;
+        }
+
+        try {
+            java.nio.file.Path tempJar = java.nio.file.Files.createTempFile("taska_update_", ".jar");
+            UpdateManager.downloadRelease(release, tempJar);
+
+            String downloadedVersion = UpdateManager.readJarVersion(tempJar);
+            if (downloadedVersion == null || !downloadedVersion.equals(release.version())) {
+                JOptionPane.showMessageDialog(null,
+                        "The downloaded file failed the version check. The update has been canceled.",
+                        "Update failed", JOptionPane.ERROR_MESSAGE);
+                java.nio.file.Files.deleteIfExists(tempJar);
+                return;
+            }
+
+            UpdateApplier.restartWithNewJar(tempJar);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null,
+                    "The update could not be downloaded: " + e.getMessage(),
+                    "Update failed", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private boolean restartPending = false;
+
+    private List<Image> loadAppIcons() {
+        List<Image> icons = new ArrayList<>();
+        java.net.URL url = getClass().getResource("/icon_256.png");
+        if (url != null) {
+            Image base = new ImageIcon(url).getImage();
+            // Явно генерируем набор размеров из одного качественного исходника —
+            // так Windows гарантированно найдёт подходящий вариант без апскейла мелкого файла
+            int[] sizes = {16, 24, 32, 48, 64, 128, 256};
+            for (int size : sizes) {
+                icons.add(base.getScaledInstance(size, size, Image.SCALE_SMOOTH));
+            }
+        }
+        return icons;
+    }
 
     private void launchWindow() throws IOException {
         terminal = new SwingTerminalFrame(
@@ -102,7 +164,15 @@ public class TuiEngine {
                 null,
                 TerminalEmulatorAutoCloseTrigger.CloseOnExitPrivateMode
         );
+
         terminal.setResizable(false);
+        terminal.setAutoRequestFocus(true);
+
+        List<Image> icons = loadAppIcons();
+        if (!icons.isEmpty()) {
+            terminal.setIconImages(icons);
+        }
+
         terminal.setVisible(true);
 
         screen = new TerminalScreen(terminal);
@@ -121,7 +191,6 @@ public class TuiEngine {
         );
 
         themeManager.apply(gui);
-        maybeCheckForUpdates();
 
         String topBar = buildTopBar("h - help", "taska", "v:" + VersionInfo.getVersion(), 80);
         window = new BasicWindow(topBar);
@@ -237,50 +306,6 @@ public class TuiEngine {
         screen.stopScreen();
     }
 
-    private void maybeCheckForUpdates() {
-        String currentVersion = UpdateManager.getCurrentVersion();
-        if ("dev".equals(currentVersion)) return;
-
-        UpdateManager.ReleaseInfo release = UpdateManager.fetchLatestRelease();
-        if (release == null) return;
-
-        if (UpdateManager.compareVersions(release.version(), currentVersion) <= 0) {
-            return;
-        }
-
-        String skipped = UpdateManager.loadSkippedVersion();
-        if (release.version().equals(skipped)) {
-            return;
-        }
-
-        UpdateDialog.Choice choice = UpdateDialog.show(gui, currentVersion, release.version(), release.notesMarkdown());
-
-        if (choice == UpdateDialog.Choice.KEEP_OLD) {
-            UpdateManager.saveSkippedVersion(release.version());
-            return;
-        }
-
-        try {
-            Path tempJar = Files.createTempFile("taska_update_", ".jar");
-            UpdateManager.downloadRelease(release, tempJar);
-
-            String downloadedVersion = UpdateManager.readJarVersion(tempJar);
-            if (downloadedVersion == null || !downloadedVersion.equals(release.version())) {
-                MessageDialog.showMessageDialog(gui, "Update failed",
-                        "The downloaded file failed the version check. The update has been canceled.");
-                Files.deleteIfExists(tempJar);
-                return;
-            }
-
-            screen.stopScreen();
-            UpdateApplier.restartWithNewJar(tempJar);
-        } catch (Exception e) {
-            e.printStackTrace();
-            MessageDialog.showMessageDialog(gui, "Update failed",
-                    "The update could not be downloaded: " + e.getMessage());
-        }
-    }
-
     private void relaunchWithNewFont(AppFont font) {
         if (!font.isAvailable()) {
             MessageDialog.showMessageDialog(gui, "Error", "Font \"" + font.getDisplayName() + "\" is not available on this system.");
@@ -306,8 +331,8 @@ public class TuiEngine {
         String rightSeg = " " + right + " ";
 
         placeSegment(bar, leftSeg, 0);
-        placeSegment(bar, centerSeg, (usable - centerSeg.length()) / 2);
-        placeSegment(bar, rightSeg, usable - rightSeg.length());
+        placeSegment(bar, centerSeg, (usable - centerSeg.length()) / 2 - 2);
+        placeSegment(bar, rightSeg, usable - rightSeg.length() - 6);
 
         return new String(bar);
     }
@@ -626,8 +651,8 @@ public class TuiEngine {
 
     private void openThemeDialog() {
         ActionListDialogBuilder builder = new ActionListDialogBuilder()
-                .setTitle("Выбор темы")
-                .setDescription("Текущая: " + themeManager.getCurrentTheme().getDisplayName())
+                .setTitle("Choosing a theme")
+                .setDescription("Current: " + themeManager.getCurrentTheme().getDisplayName())
                 .setCanCancel(true);
 
         for (AppTheme theme : AppTheme.values()) {
@@ -639,7 +664,7 @@ public class TuiEngine {
 
     private void openFontDialog() {
         ActionListDialogBuilder builder = new ActionListDialogBuilder()
-                .setTitle("Select a Font")
+                .setTitle("Select a font")
                 .setDescription("Current: " + fontManager.getCurrentFont().getDisplayName()
                         + " (The window will restart to apply the changes)")
                 .setCanCancel(true);
