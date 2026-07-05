@@ -142,7 +142,7 @@ public class TuiEngine {
 
     private List<Image> loadAppIcons() {
         List<Image> icons = new ArrayList<>();
-        java.net.URL url = getClass().getResource("/icon_256.png");
+        java.net.URL url = getClass().getResource("/project_icon.png");
         if (url != null) {
             Image base = new ImageIcon(url).getImage();
             int[] sizes = {16, 24, 32, 48, 64, 128, 256};
