@@ -12,6 +12,7 @@ target/
 *.iws
 *.iml
 *.ipr
+todo.txt
 
 ### Eclipse ###
 .apt_generated
