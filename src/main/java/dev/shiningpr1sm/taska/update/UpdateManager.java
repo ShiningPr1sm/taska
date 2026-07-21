@@ -2,6 +2,7 @@ package dev.shiningpr1sm.taska.update;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.shiningpr1sm.taska.AppConfig;
 import dev.shiningpr1sm.taska.tui.VersionInfo;
 
 import java.io.IOException;
@@ -13,7 +14,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Properties;
 import java.util.jar.JarFile;
@@ -25,8 +25,7 @@ public class UpdateManager {
     private static final String GITHUB_OWNER = "ShiningPr1sm";
     private static final String GITHUB_REPO = "taska";
 
-    private static final Path CONFIG_PATH =
-            Paths.get(System.getProperty("user.home"), ".taska", "update.properties");
+    private static final Path CONFIG_PATH = AppConfig.resolve("update.properties");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

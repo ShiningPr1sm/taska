@@ -1,17 +1,17 @@
 package dev.shiningpr1sm.taska.tui.theme;
 
+import dev.shiningpr1sm.taska.AppConfig;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Properties;
 
 public class FontManager {
 
-    private static final Path CONFIG_PATH =
-            Paths.get(System.getProperty("user.home"), ".taska", "font.properties");
+    private static final Path CONFIG_PATH = AppConfig.resolve("font.properties");
     private static final String KEY = "font";
 
     private AppFont currentFont = AppFont.CONSOLAS;

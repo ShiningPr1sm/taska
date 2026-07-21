@@ -3,6 +3,7 @@ package dev.shiningpr1sm.taska.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import dev.shiningpr1sm.taska.AppConfig;
 import dev.shiningpr1sm.taska.model.TaskList;
 
 import java.io.IOException;
@@ -14,10 +15,15 @@ import java.util.stream.Stream;
 
 public class StorageService {
 
-    private final Path storageDir = Paths.get(System.getProperty("user.home"), ".taska");
+    private Path storageDir;
     private final ObjectMapper objectMapper;
 
     public StorageService() {
+        this(AppConfig.DATA_DIR);
+    }
+
+    StorageService(Path storageDir) {
+        this.storageDir = storageDir;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);

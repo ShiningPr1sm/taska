@@ -16,6 +16,7 @@ import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.swing.SwingTerminalFrame;
 import com.googlecode.lanterna.terminal.swing.TerminalEmulatorAutoCloseTrigger;
+import dev.shiningpr1sm.taska.UiConstants;
 import dev.shiningpr1sm.taska.model.Priority;
 import dev.shiningpr1sm.taska.model.Task;
 import dev.shiningpr1sm.taska.model.TaskList;
@@ -156,8 +157,8 @@ public class TuiEngine {
 
     private void launchWindow() throws IOException {
         terminal = new SwingTerminalFrame(
-                "taska",
-                new TerminalSize(100, 24),
+                UiConstants.APP_TITLE,
+                new TerminalSize(UiConstants.TERMINAL_WIDTH, UiConstants.TERMINAL_HEIGHT),
                 null,
                 fontManager.getCurrentFont().toFontConfiguration(),
                 null,
@@ -191,13 +192,13 @@ public class TuiEngine {
 
         themeManager.apply(gui);
 
-        String topBar = buildTopBar("h - help", "taska", "v:" + VersionInfo.getVersion(), 100);
+        String topBar = buildTopBar("h - help", UiConstants.APP_TITLE, "v:" + VersionInfo.getVersion(), UiConstants.TOP_BAR_WIDTH);
         window = new BasicWindow(topBar);
 
         Panel mainPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
 
         Panel leftPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        listsBox = new ActionListBox(new TerminalSize(46, 17)) {
+        listsBox = new ActionListBox(new TerminalSize(UiConstants.LISTS_BOX_WIDTH, UiConstants.LISTS_BOX_HEIGHT)) {
             @Override
             public synchronized Interactable.Result handleKeyStroke(KeyStroke keyStroke) {
                 KeyAction action = keyBindings.resolve(keyStroke);
@@ -218,7 +219,7 @@ public class TuiEngine {
         Panel rightPanel = new Panel(new LinearLayout(Direction.VERTICAL));
 
         Panel tasksPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        tasksBox = new ActionListBox(new TerminalSize(48, 9)) {
+        tasksBox = new ActionListBox(new TerminalSize(UiConstants.TASKS_BOX_WIDTH, UiConstants.TASKS_BOX_HEIGHT)) {
             @Override
             public synchronized Interactable.Result handleKeyStroke(KeyStroke keyStroke) {
                 KeyAction action = keyBindings.resolve(keyStroke);
@@ -246,7 +247,7 @@ public class TuiEngine {
         detailsPanel.addComponent(createdLabel);
         detailsPanel.addComponent(new Label("\nNotes:"));
         detailsPanel.addComponent(notesLabel);
-        detailsPanel.setPreferredSize(new TerminalSize(48, 7));
+        detailsPanel.setPreferredSize(new TerminalSize(UiConstants.DETAILS_PANEL_WIDTH, UiConstants.DETAILS_PANEL_HEIGHT));
         rightPanel.addComponent(detailsPanel.withBorder(Borders.singleLine("Details")),
                 LinearLayout.createLayoutData(LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow));
 
@@ -427,7 +428,7 @@ public class TuiEngine {
         String marker = selected ? "| " : "  ";
         String name = list.getName();
         String progress = list.getProgressString();
-        int totalWidth = 41;
+        int totalWidth = UiConstants.LIST_ITEM_FORMAT_WIDTH;
         int spaces = Math.max(1, totalWidth - name.length() - progress.length());
         return marker + name + " ".repeat(spaces) + progress;
     }
@@ -466,7 +467,7 @@ public class TuiEngine {
             priorityLabel.setText("Priority: " +
                     (currentTask.getPriority() != null ? currentTask.getPriority().toString().toLowerCase() : "none"));
             createdLabel.setText("Created: " + formatCreatedAt(currentTask.getCreatedAt()));
-            notesLabel.setText(wrapText(currentTask.getNotes(), 44));
+            notesLabel.setText(wrapText(currentTask.getNotes(), UiConstants.NOTES_WRAP_WIDTH));
         } else {
             statusLabel.setText("Status: -");
             priorityLabel.setText("Priority: -");

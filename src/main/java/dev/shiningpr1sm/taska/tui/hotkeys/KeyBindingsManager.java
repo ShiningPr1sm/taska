@@ -1,19 +1,18 @@
 package dev.shiningpr1sm.taska.tui.hotkeys;
 
 import com.googlecode.lanterna.input.KeyStroke;
+import dev.shiningpr1sm.taska.AppConfig;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 public class KeyBindingsManager {
 
-    private static final Path CONFIG_PATH =
-            Paths.get(System.getProperty("user.home"), ".taska", "keybindings.properties");
+    private static final Path CONFIG_PATH = AppConfig.resolve("keybindings.properties");
 
     private final Map<KeyAction, KeyBinding> bindings = new LinkedHashMap<>();
 
