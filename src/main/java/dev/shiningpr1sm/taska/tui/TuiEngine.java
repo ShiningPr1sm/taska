@@ -28,6 +28,7 @@ import dev.shiningpr1sm.taska.tui.theme.ThemeManager;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -362,15 +363,28 @@ public class TuiEngine {
 
     private List<Image> loadAppIcons() {
         List<Image> icons = new ArrayList<>();
+
         java.net.URL url = getClass().getResource("/project_icon.png");
-        if (url != null) {
-            Image base = new ImageIcon(url).getImage();
-            int[] sizes = {16, 24, 32, 48, 64, 128, 256};
-            for (int size : sizes) {
-                icons.add(base.getScaledInstance(size, size, Image.SCALE_SMOOTH));
-            }
+        if (url == null) return icons;
+
+        Image base = new ImageIcon(url).getImage();
+        int[] sizes = {16, 24, 32, 48, 64, 128, 256};
+        for (int size : sizes) {
+            icons.add(scaleToSize(base, size, size));
         }
+        base.flush();
         return icons;
+    }
+
+    private static Image scaleToSize(Image source, int width, int height) {
+        BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(source, 0, 0, width, height, null);
+        g.dispose();
+        return scaled;
     }
 
     private String buildTopBar(String left, String center, String right, int windowWidth) {
