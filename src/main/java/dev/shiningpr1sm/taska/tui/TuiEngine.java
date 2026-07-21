@@ -29,7 +29,7 @@ import dev.shiningpr1sm.taska.tui.theme.FontManager;
 import dev.shiningpr1sm.taska.tui.theme.ThemeManager;
 import dev.shiningpr1sm.taska.update.SwingUpdatePrompt;
 import dev.shiningpr1sm.taska.update.UpdateApplier;
-import dev.shiningpr1sm.taska.update.UpdateDialog;
+import com.googlecode.lanterna.graphics.ThemeDefinition;
 import dev.shiningpr1sm.taska.update.UpdateManager;
 
 import javax.swing.*;
@@ -63,6 +63,7 @@ public class TuiEngine {
     private Label priorityLabel;
     private Label notesLabel;
     private Label createdLabel;
+    private TextColor[] taskDotColors;
 
     private int pendingListIndex = 0;
     private int pendingTaskIndex = 0;
@@ -156,7 +157,7 @@ public class TuiEngine {
     private void launchWindow() throws IOException {
         terminal = new SwingTerminalFrame(
                 "taska",
-                new TerminalSize(80, 24),
+                new TerminalSize(100, 24),
                 null,
                 fontManager.getCurrentFont().toFontConfiguration(),
                 null,
@@ -190,13 +191,13 @@ public class TuiEngine {
 
         themeManager.apply(gui);
 
-        String topBar = buildTopBar("h - help", "taska", "v:" + VersionInfo.getVersion(), 80);
+        String topBar = buildTopBar("h - help", "taska", "v:" + VersionInfo.getVersion(), 100);
         window = new BasicWindow(topBar);
 
         Panel mainPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
 
         Panel leftPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        listsBox = new ActionListBox(new TerminalSize(36, 17)) {
+        listsBox = new ActionListBox(new TerminalSize(46, 17)) {
             @Override
             public synchronized Interactable.Result handleKeyStroke(KeyStroke keyStroke) {
                 KeyAction action = keyBindings.resolve(keyStroke);
@@ -217,7 +218,7 @@ public class TuiEngine {
         Panel rightPanel = new Panel(new LinearLayout(Direction.VERTICAL));
 
         Panel tasksPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        tasksBox = new ActionListBox(new TerminalSize(38, 9)) {
+        tasksBox = new ActionListBox(new TerminalSize(48, 9)) {
             @Override
             public synchronized Interactable.Result handleKeyStroke(KeyStroke keyStroke) {
                 KeyAction action = keyBindings.resolve(keyStroke);
@@ -230,6 +231,7 @@ public class TuiEngine {
                 return result;
             }
         };
+        tasksBox.setListItemRenderer(new PriorityDotRenderer());
         tasksPanel.addComponent(tasksBox);
         rightPanel.addComponent(tasksPanel.withBorder(Borders.singleLine("Tasks")),
                 LinearLayout.createLayoutData(LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.None));
@@ -244,7 +246,7 @@ public class TuiEngine {
         detailsPanel.addComponent(createdLabel);
         detailsPanel.addComponent(new Label("\nNotes:"));
         detailsPanel.addComponent(notesLabel);
-        detailsPanel.setPreferredSize(new TerminalSize(38, 7));
+        detailsPanel.setPreferredSize(new TerminalSize(48, 7));
         rightPanel.addComponent(detailsPanel.withBorder(Borders.singleLine("Details")),
                 LinearLayout.createLayoutData(LinearLayout.Alignment.Fill, LinearLayout.GrowPolicy.CanGrow));
 
@@ -256,6 +258,7 @@ public class TuiEngine {
             tasksBox.clearItems();
 
             if (selectedIndex < 0 || selectedIndex >= allLists.size()) {
+                taskDotColors = new TextColor[0];
                 refreshDetailsPanel();
                 return;
             }
@@ -263,11 +266,16 @@ public class TuiEngine {
             TaskList currentList = allLists.get(selectedIndex);
             List<Task> tasks = currentList.getTasks();
 
+            taskDotColors = new TextColor[tasks.size()];
+
             for (int i = 0; i < tasks.size(); i++) {
                 Task task = tasks.get(i);
                 String statusIcon = task.isDone() ? "[x] " : "[ ] ";
+
+                taskDotColors[i] = dotColorFor(task.getPriority());
+
                 final int taskIndexForThisItem = i;
-                tasksBox.addItem(statusIcon + task.getTitle(),
+                tasksBox.addItem("█ " + statusIcon + task.getTitle(),
                         () -> toggleTask(currentList, selectedIndex, taskIndexForThisItem));
             }
 
@@ -304,6 +312,48 @@ public class TuiEngine {
         screen.stopScreen();
     }
 
+    private TextColor dotColorFor(Priority priority) {
+        if (priority == null) return TextColor.ANSI.WHITE;
+        return switch (priority) {
+            case LOW -> new TextColor.RGB(0x1B, 0x9F, 0x20);
+            case MEDIUM -> new TextColor.RGB(0xDA, 0x94, 0x17);
+            case HIGH -> new TextColor.RGB(0xE0, 0x11, 0x11);
+        };
+    }
+
+    private class PriorityDotRenderer extends AbstractListBox.ListItemRenderer<Runnable, ActionListBox> {
+
+        private static final String DOT = "█ ";
+
+        @Override
+        public void drawItem(TextGUIGraphics graphics, ActionListBox listBox, int index, Runnable item, boolean selected, boolean focused) {
+            ThemeDefinition themeDefinition = listBox.getThemeDefinition();
+            if (selected && focused) {
+                graphics.applyThemeStyle(themeDefinition.getSelected());
+            } else {
+                graphics.applyThemeStyle(themeDefinition.getNormal());
+            }
+            graphics.fill(' ');
+
+            String label = item != null ? item.toString() : "";
+            if (!label.startsWith(DOT)) {
+                graphics.putString(0, 0, label);
+                return;
+            }
+
+            TextColor dotColor = (taskDotColors != null && index < taskDotColors.length)
+                    ? taskDotColors[index]
+                    : TextColor.ANSI.WHITE;
+            TextColor originalForeground = graphics.getForegroundColor();
+
+            graphics.setForegroundColor(dotColor);
+            graphics.putString(0, 0, DOT);
+
+            graphics.setForegroundColor(originalForeground);
+            graphics.putString(DOT.length(), 0, label.substring(DOT.length()));
+        }
+    }
+
     private void relaunchWithNewFont(AppFont font) {
         if (!font.isAvailable()) {
             MessageDialog.showMessageDialog(gui, "Error", "Font \"" + font.getDisplayName() + "\" is not available on this system.");
@@ -330,7 +380,7 @@ public class TuiEngine {
 
         placeSegment(bar, leftSeg, 0);
         placeSegment(bar, centerSeg, (usable - centerSeg.length()) / 2 - 2);
-        placeSegment(bar, rightSeg, usable - rightSeg.length() - 6);
+        placeSegment(bar, rightSeg, usable - rightSeg.length() - 4);
 
         return new String(bar);
     }
@@ -377,7 +427,7 @@ public class TuiEngine {
         String marker = selected ? "| " : "  ";
         String name = list.getName();
         String progress = list.getProgressString();
-        int totalWidth = 31;
+        int totalWidth = 41;
         int spaces = Math.max(1, totalWidth - name.length() - progress.length());
         return marker + name + " ".repeat(spaces) + progress;
     }
@@ -416,7 +466,7 @@ public class TuiEngine {
             priorityLabel.setText("Priority: " +
                     (currentTask.getPriority() != null ? currentTask.getPriority().toString().toLowerCase() : "none"));
             createdLabel.setText("Created: " + formatCreatedAt(currentTask.getCreatedAt()));
-            notesLabel.setText(wrapText(currentTask.getNotes(), 34));
+            notesLabel.setText(wrapText(currentTask.getNotes(), 44));
         } else {
             statusLabel.setText("Status: -");
             priorityLabel.setText("Priority: -");
